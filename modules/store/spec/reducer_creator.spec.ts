@@ -1,4 +1,11 @@
-import { on, createReducer, createAction, props, union } from '@ngrx/store';
+import {
+  ActionType,
+  on,
+  createReducer,
+  createAction,
+  props,
+  union,
+} from '@ngrx/store';
 
 describe('classes/reducer', function (): void {
   describe('base', () => {
@@ -22,7 +29,7 @@ describe('classes/reducer', function (): void {
           bar?: number;
         }
 
-        const fooBarReducer = createReducer(
+        const fooBarReducer = createReducer<State>(
           {} as State,
           on(foo, (state, { foo }) => ({ ...state, foo })),
           on(bar, (state, { bar }) => ({ ...state, bar }))
@@ -75,6 +82,42 @@ describe('classes/reducer', function (): void {
 
         state = counterReducer(state, increase());
         expect(state).toEqual(7);
+      });
+
+      it('accepts custom functions within on calls', () => {
+        interface State {
+          foo?: number;
+          bar?: number;
+        }
+
+        function mutableReducer<S, A>(callback: (state: S, action: A) => S) {
+          return (oldState: S, value: A) => {
+            return ((state: S) => callback(state, value))(oldState) as S;
+          };
+        }
+
+        const fooBarReducer = createReducer<State>(
+          {} as State,
+          on(
+            foo,
+            mutableReducer<State, ActionType<typeof foo>>((state, { foo }) => ({
+              ...state,
+              foo,
+            }))
+          ),
+          on(bar, (state, { bar }) => ({ ...state, bar }))
+        );
+
+        expect(typeof fooBarReducer).toEqual('function');
+
+        let state = fooBarReducer(undefined, { type: 'UNKNOWN' });
+        expect(state).toEqual({});
+
+        state = fooBarReducer(state, foo({ foo: 42 }));
+        expect(state).toEqual({ foo: 42 });
+
+        state = fooBarReducer(state, bar({ bar: 54 }));
+        expect(state).toEqual({ foo: 42, bar: 54 });
       });
     });
   });

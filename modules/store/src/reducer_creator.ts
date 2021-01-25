@@ -10,8 +10,8 @@ export interface ReducerTypes<S> {
 }
 
 // Specialized Reducer that is aware of the Action type it needs to handle
-export interface OnReducer<S, C extends ActionCreator[]> {
-  (state: S, action: ActionType<C[number]>): S;
+export interface OnReducer<S, C extends readonly ActionCreator[]> {
+  <R extends S>(state: S, action: ActionType<C[number]>): R;
 }
 
 /**
@@ -28,11 +28,11 @@ export interface OnReducer<S, C extends ActionCreator[]> {
  * on(AuthApiActions.loginSuccess, (state, { user }) => ({ ...state, user }))
  * ```
  */
-export function on<
-  Creators extends ActionCreator[],
-  State,
-  Reducer extends OnReducer<State, Creators>
->(...args: [...creators: Creators, reducer: Reducer]): ReducerTypes<State> {
+export function on<State, Creators extends readonly ActionCreator[]>(
+  ...args: [...creators: Creators, reducer: OnReducer<State, Creators>]
+): ReducerTypes<State> {
+  // This could be refactored when TS releases the version with this fix:
+  // https://github.com/microsoft/TypeScript/pull/41544
   const reducer = (args.pop() as Function) as ActionReducer<State>;
   const types = args.reduce(
     (result, creator) => [...result, (creator as ActionCreator).type],
@@ -96,8 +96,8 @@ export function createReducer<S, A extends Action = Action>(
   const map = new Map<string, ActionReducer<S, A>>();
   for (let on of ons) {
     for (let type of on.types) {
-      if (map.has(type)) {
-        const existingReducer = map.get(type) as ActionReducer<S, A>;
+      const existingReducer = map.get(type);
+      if (existingReducer) {
         const newReducer: ActionReducer<S, A> = (state, action) =>
           on.reducer(existingReducer(state, action), action);
         map.set(type, newReducer);
